@@ -1,68 +1,76 @@
 #!/bin/bash
 set -e
 
-# 1. Pergunta o papel do computador
-echo "------------------------------------------"
-echo " Configuração Debian 13 - Veyon & Wayland "
-echo "------------------------------------------"
-echo "Escolha o perfil deste computador:"
-echo "1) Professor (Controlador - Instala Master + Service)"
-echo "2) Aluno (Controlado - Instala apenas Service)"
-read -p "Digite a opção [1 ou 2]: " OPCAO
-
-case $OPCAO in
-    1)
-        VEYON_PACKAGES="veyon-master veyon-service"
-        PERFIL="PROFESSOR"
-        ;;
-    2)
-        VEYON_PACKAGES="veyon-service"
-        PERFIL="ALUNO"
-        ;;
-    *)
-        echo "Opção inválida. Saindo."
-        exit 1
-        ;;
-esac
-
-# 2. Habilita o login de Root no SDDM (Comenta a restrição no PAM)
-# Isso permite que você logue na interface gráfica diretamente como root, se necessário.
-if [ -f /etc/pam.d/sddm ]; then
-    echo "Habilitando login de root no SDDM..."
-    sed -i '/user != root quiet_success/s/^/#/' /etc/apt/sources.list.d/teste.list /etc/pam.d/sddm
-else
-    echo "Aviso: /etc/pam.d/sddm não encontrado. SDDM pode não estar instalado ainda."
+# Verifica root
+if [ "$EUID" -ne 0 ]; then 
+  echo "Execute como root no TTY."
+  exit 1
 fi
 
-echo "Iniciando configuração para perfil: $PERFIL..."
+# 1. Escolha do Ambiente de Desktop
+echo "--- AMBIENTE DE DESKTOP ---"
+echo "1) LXQt (Wayland Testing + Root no SDDM)"
+echo "2) Outro (KDE/Cinnamon/etc - Estável)"
+read -p "Escolha: " AMBIENTE
 
-# 2. LXQt Wayland do Testing (Mínimo necessário)
-echo "deb http://deb.debian.org/debian/ testing main" > /etc/apt/sources.list.d/teste.list
-apt update
-apt install -y lxqt-wayland-session
-rm /etc/apt/sources.list.d/teste.list
-apt update
+# 2. Escolha do Perfil Veyon
+echo "--- PERFIL VEYON ---"
+echo "1) Professor (Master + Service)"
+echo "2) Aluno (Apenas Service)"
+read -p "Escolha: " PERFIL_OPCAO
 
-# 3. Instalação das Ferramentas e Veyon escolhido
-apt install -y zram-tools btrfs-assistant ufw gufw $VEYON_PACKAGES
+# Lógica do Veyon
+if [ "$PERFIL_OPCAO" == "1" ]; then
+    VEYON_PACKAGES="veyon-master veyon-service"
+else
+    VEYON_PACKAGES="veyon-service"
+fi
 
-# 4. Configuração do Firewall (UFW) (FALTA TESTAR)
-# Portas padrão para comunicação e demonstração
+# 3. Processamento específico do LXQt
+if [ "$AMBIENTE" == "1" ]; then
+    echo "Configurando LXQt Wayland via Testing..."
+    
+    # Adiciona repositório testing
+    echo "deb http://deb.debian.org/debian/ testing main" > /etc/apt/sources.list.d/teste.list
+    apt update
+    
+    # Instala Wayland do Testing
+    apt install -y lxqt-wayland-session
+    
+    # Remove repositório testing imediatamente
+    rm /etc/apt/sources.list.d/teste.list
+    apt update
+    
+    # Habilita Root no SDDM (Apenas para LXQt)
+    if [ -f /etc/pam.d/sddm ]; then
+        sed -i '/user != root quiet_success/s/^/#/' /etc/pam.d/sddm
+        echo "Login root habilitado no SDDM."
+    fi
+else
+    echo "Mantendo ambiente estável selecionado..."
+fi
+
+# 4. Instalação de Ferramentas e Veyon (Stable)
+apt install -y zram-tools btrfs-assistant snapper ufw gufw $VEYON_PACKAGES
+
+# 5. Configuração do Firewall
 ufw allow 11100/tcp
 ufw allow 11400/tcp
 ufw --force enable
 
-# 5. Ativação do zRAM
+# 6. Ativação do zRAM
 systemctl enable --now zramswap
 
-# 6. Limpeza (Remova os nomes genéricos e coloque os apps que deseja deletar)
-# apt purge -y [NOMES_DOS_APPS]
+# 7. Limpeza agressiva de outros ambientes (Purge)
+echo "Limpando vestígios de outros desktops (KDE, Cinnamon, LXQt)..."
+# Remove KDE, Cinnamon e LXQt (ajuste a lista conforme sua necessidade de 'limpeza')
+apt purge -y plasma-desktop cinnamon lxqt task-kde-desktop task-cinnamon-desktop task-lxqt-desktop
 apt autoremove -y
 
+# 8. Finalização
 echo "------------------------------------------------------------"
-echo "CONCLUÍDO PARA PERFIL $PERFIL!"
-echo "1. Faça REBOOT agora."
-echo "2. No login, selecione 'LXQt (Wayland)'."
-echo "3. Lembre-se de configurar as Chaves de Autenticação no"
-echo "   Veyon Configurator após o reinício."
+echo "CONCLUÍDO!"
+echo "1. Reinicie agora (reboot)."
+echo "2. Se instalou LXQt, selecione 'LXQt (Wayland)' no login."
+echo "3. Lembre-se de configurar as chaves do Veyon após o boot."
 echo "------------------------------------------------------------"
