@@ -9,51 +9,44 @@ fi
 
 # 1. Escolha do Ambiente de Desktop
 echo "--- AMBIENTE DE DESKTOP ---"
-echo "1) LXQt (Wayland Testing + Root no SDDM)"
-echo "2) Outro (KDE/Cinnamon/etc - Estável)"
+echo "1) LXQt (Instala Wayland via Testing + Habilita Root no SDDM)"
+echo "2) Outro (Mantém versão Stable)"
 read -p "Escolha: " AMBIENTE
 
 # 2. Escolha do Perfil Veyon
 echo "--- PERFIL VEYON ---"
-echo "1) Professor (Master + Service)"
-echo "2) Aluno (Apenas Service)"
+echo "1) Professor (Instala Master + Service)"
+echo "2) Aluno (Instala apenas Service)"
 read -p "Escolha: " PERFIL_OPCAO
 
-# Lógica do Veyon
+# Definição dos pacotes Veyon
 if [ "$PERFIL_OPCAO" == "1" ]; then
     VEYON_PACKAGES="veyon-master veyon-service"
 else
     VEYON_PACKAGES="veyon-service"
 fi
 
-# 3. Processamento específico do LXQt
+# 3. Lógica específica para LXQt (Wayland e Root)
 if [ "$AMBIENTE" == "1" ]; then
-    echo "Configurando LXQt Wayland via Testing..."
+    echo "Configurando LXQt Wayland e Root no SDDM..."
     
-    # Adiciona repositório testing
-    echo "deb http://deb.debian.org/debian/ testing main" > /etc/apt/sources.list.d/teste.list
-    apt update
-    
-    # Instala Wayland do Testing
-    apt install -y lxqt-wayland-session
-    
-    # Remove repositório testing imediatamente
-    rm /etc/apt/sources.list.d/teste.list
-    apt update
-    
-    # Habilita Root no SDDM (Apenas para LXQt)
+    # Habilita login de root no SDDM
     if [ -f /etc/pam.d/sddm ]; then
         sed -i '/user != root quiet_success/s/^/#/' /etc/pam.d/sddm
-        echo "Login root habilitado no SDDM."
     fi
-else
-    echo "Mantendo ambiente estável selecionado..."
+
+    # Instala Wayland puxando do Testing
+    echo "deb deb.debian.org testing main" > /etc/apt/sources.list.d/teste.list
+    apt update
+    apt install -y -t testing lxqt-wayland-session labwc
+    rm /etc/apt/sources.list.d/teste.list
+    apt update
 fi
 
-# 4. Instalação de Ferramentas e Veyon (Stable)
+# 4. Instalação de Ferramentas de Sistema e Veyon (Stable)
 apt install -y zram-tools btrfs-assistant snapper ufw gufw $VEYON_PACKAGES
 
-# 5. Configuração do Firewall
+# 5. Configuração do Firewall (UFW)
 ufw allow 11100/tcp
 ufw allow 11400/tcp
 ufw --force enable
@@ -61,16 +54,23 @@ ufw --force enable
 # 6. Ativação do zRAM
 systemctl enable --now zramswap
 
-# 7. Limpeza agressiva de outros ambientes (Purge)
-echo "Limpando vestígios de outros desktops (KDE, Cinnamon, LXQt)..."
-# Remove KDE, Cinnamon e LXQt (ajuste a lista conforme sua necessidade de 'limpeza')
-apt purge -y plasma-desktop cinnamon lxqt task-kde-desktop task-cinnamon-desktop task-lxqt-desktop
+# 7. Limpeza de pacotes padrão (Ajuste esta lista conforme sua preferência)
+# Removendo apps comuns do KDE, Cinnamon e LXQt (ex: jogos, chats, reprodutores)
+echo "Removendo pacotes padrão indesejados..."
+apt purge -y \
+    quassel transmission-common vlc-plugin-base \
+    kmines kpat kmahjongg \
+    gnome-games hitori \
+    libreoffice-draw libreoffice-math \
+    pidgin hexchat \
+    akregator juk korganizer
+    
 apt autoremove -y
 
 # 8. Finalização
 echo "------------------------------------------------------------"
-echo "CONCLUÍDO!"
-echo "1. Reinicie agora (reboot)."
-echo "2. Se instalou LXQt, selecione 'LXQt (Wayland)' no login."
-echo "3. Lembre-se de configurar as chaves do Veyon após o boot."
+echo "PROCESSO CONCLUÍDO!"
+echo "1. Faça REBOOT agora."
+echo "2. Se escolheu LXQt, selecione 'LXQt (Wayland)' no login."
+echo "3. O Veyon e o Firewall já estão ativos."
 echo "------------------------------------------------------------"
