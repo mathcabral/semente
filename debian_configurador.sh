@@ -65,7 +65,7 @@ apt install -y zram-tools btrfs-assistant ufw $VEYON_PACKAGES
 # 5. Configuração do Firewall (UFW)
 #ufw allow 11100/tcp
 #ufw allow 11400/tcp
-#ufw --force enable
+ufw enable
 
 # 7. Limpeza de pacotes padrão (Ajuste esta lista conforme sua preferência)
 # Removendo apps comuns do KDE, Cinnamon e LXQt (ex: jogos, chats, reprodutores)
