@@ -40,6 +40,13 @@ if [ "$PERFIL_OPCAO" == "1" ]; then
     usermod -l professor -d /home/professor -m aluno
     # Altera o nome do grupo principal
     groupmod -n professor aluno
+
+    # Instala o gerenciador
+    sudo apt install snapd -y
+
+    # Instala o AdGuard usando o caminho absoluto (mais seguro para scripts)
+    sudo /usr/bin/snap install adguard-home
+
 else
     VEYON_PACKAGES="veyon-service"
 fi       
